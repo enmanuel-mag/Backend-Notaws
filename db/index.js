@@ -1,5 +1,6 @@
 const { initializeApp, getApps } = require("firebase/app");
 const { getFirestore } = require("firebase/firestore");
+const { getStorage } = require("firebase/storage"); 
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -15,4 +16,7 @@ if (getApps().length === 0) {
   initializeApp(firebaseConfig);
 }
 
-module.exports = getFirestore();
+module.exports = {
+  db: getFirestore(),
+  storage: getStorage(),
+};

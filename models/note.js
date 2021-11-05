@@ -30,7 +30,7 @@ const { db, storage } = require('../db');
 //objecto para definir la manera en que se parsea los datos al
 //enviarlos a firestore y al recibirlos de firestore
 const noteConverter = {
-  toFirestore: (city) => {
+  toFirestore: (data) => {
     Object.keys(data).forEach((key) => {
       if (data[key] === null || data[key] === undefined) {
         delete data[key];
@@ -46,6 +46,30 @@ const noteConverter = {
       ...data,
     };
   },
+};
+
+const uploadFile = (file, callback) => {
+  if (!file) {
+    return cb(null, null);
+  }
+  //Get extension
+  const extesion = file.mimetype.split('/')[1];
+  //Create ref to storage
+  const fullName = `${file.filename}.${extesion}`;
+  const storagePath = `${collectionName}/${fullName}`;
+  const fileRef = ref(storage, storagePath);
+  //Upload file
+  return uploadBytes(fileRef, fs.readFileSync(file.path))
+    .then(() =>
+      callback(null, {
+        storagePath,
+        originalname: file.originalname,
+      })
+    )
+    .catch((err) => {
+      console.log('Error uploading file');
+      return callback(err);
+    });
 };
 
 const collectionName = 'notes';
@@ -104,28 +128,18 @@ class Note {
     data.createdAt = Timestamp.now();
 
     //doc(database, nombre-de-coleccion, id <id a usar para el nuevo documento>)
-    const documentRef = doc(db, collectionName, data.id);
+    const documentRef = doc(db, collectionName, data.id)
+      .withConverter(noteConverter);
     return async.waterfall(
       [
         (cb) => {
-          //Get extension
-          const extesion = file.mimetype.split('/')[1];
-          //Create ref to storage
-          const fullName = `${file.filename}.${extesion}`;
-          const storagePath = `${collectionName}/${fullName}`;
-          const fileRef = ref(storage, storagePath);
-          //Upload file
-          return uploadBytes(fileRef, fs.readFileSync(file.path))
-            .then(() =>
-              cb(null, {
-                storagePath,
-                originalname: file.originalname,
-              })
-            )
-            .catch((err) => {
+          return uploadFile(file, (err, fileUploaded) => {
+            if (err) {
               console.log('Error uploading file');
               return cb(err);
-            });
+            }
+            return cb(null, fileUploaded);
+          });
         },
         (fileUploaded, cb) => {
           //setDoc(documento, data <objecto con informacion de nuevo documento>)
@@ -151,28 +165,13 @@ class Note {
     return async.waterfall(
       [
         (cb) => {
-          if (!file) {
-            return cb(null, null);
-          }
-          console.log('Uploading new file');
-          //Get extension
-          const extesion = file.mimetype.split('/')[1];
-          //Create ref to storage
-          const fullName = `${file.filename}.${extesion}`;
-          const storagePath = `${collectionName}/${fullName}`;
-          const fileRef = ref(storage, storagePath);
-          //Upload file
-          return uploadBytes(fileRef, fs.readFileSync(file.path))
-            .then(() =>
-              cb(null, {
-                storagePath,
-                originalname: file.originalname,
-              })
-            )
-            .catch((err) => {
+          return uploadFile(file, (err, fileUploaded) => {
+            if (err) {
               console.log('Error uploading file');
               return cb(err);
-            });
+            }
+            return cb(null, fileUploaded);
+          });
         },
         (fileUploaded, cb) => {
           console.log('Updating document');
